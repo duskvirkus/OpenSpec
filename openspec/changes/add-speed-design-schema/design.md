@@ -2,19 +2,19 @@
 
 OpenSpec ships with one built-in schema: `spec-driven` (proposal → specs → design → tasks). Schemas live at `schemas/<name>/schema.yaml` in the package and are resolved via a three-tier lookup: project-local → user override → package built-in. Adding a new built-in schema requires only a new directory under `schemas/` — no CLI code changes.
 
-The existing `spec-driven` schema demonstrates the full pattern. The `speed-design` schema is a strict subset: same artifact structure, same `apply` contract, just fewer nodes in the dependency graph.
+The existing `spec-driven` schema defines specs as dependent on proposal. The `speed-design` schema inverts this: design is the root artifact, and specs are derived from the design rather than from a proposal. This preserves testable requirements (specs) while eliminating the proposal as a prerequisite.
 
 ## Goals / Non-Goals
 
 **Goals:**
 - Ship `speed-design` as a built-in schema available to all users without configuration
-- Two artifacts only: `design` (root) → `tasks` (requires design)
-- Templates and instructions scoped to the leaner context — no mentions of proposal or specs
+- Three artifacts: `design` (root) → `specs` (requires design) → `tasks` (requires specs)
+- Templates and instructions scoped to the leaner context — no proposal references
 - Apply contract identical to `spec-driven`: requires `tasks`
 
 **Non-Goals:**
 - Modifying any existing schema or CLI code
-- Adding a `specs` artifact as optional — keep the schema minimal by design
+- Making specs optional — they remain a required artifact, just driven by design instead of proposal
 - Supporting per-project or user-level template overrides (that already works via the resolver, nothing new needed)
 
 ## Decisions
@@ -25,16 +25,19 @@ The schema resolver already handles multiple built-in schemas by scanning `schem
 **Decision: `design` has `requires: []` (root artifact)**
 Without a proposal, design becomes the entry point. The agent is expected to gather context conversationally or from the codebase before writing the design doc.
 
-**Decision: Tasks template references design only**
-The `spec-driven` tasks template instructs the agent to "reference specs for what, design for how." The `speed-design` tasks template will instruct the agent to reference design only, which is the sole source of truth in this schema.
+**Decision: `specs` requires `design`, not the other way around**
+In `spec-driven`, specs capture WHAT based on a proposal. Here, the design already captures WHAT and HOW — specs formalize the requirements in testable language from the design. This is the key structural difference from `spec-driven`.
+
+**Decision: `tasks` requires `specs` (same dependency as `spec-driven`)**
+Tasks are grounded in specs, which remain the testable contract. The chain is: design (intent) → specs (requirements) → tasks (work).
 
 **Decision: Copy and adapt templates from `spec-driven`, don't share them**
 Templates are small and schema-specific. Sharing would couple schemas together and complicate future independent evolution. Each schema owns its templates.
 
 ## Risks / Trade-offs
 
-- [Risk] Users expect `speed-design` to behave like a strict subset of `spec-driven` → Mitigation: keep artifact IDs (`design`, `tasks`) and apply contract identical so skills written for one work with the other
-- [Risk] Template instructions still reference proposal/specs by accident → Mitigation: explicit review of all instruction text before shipping
+- [Risk] Agents may still write specs in the `spec-driven` delta format (ADDED/MODIFIED sections) when using `speed-design` → Mitigation: spec template and instruction explicitly describe full specs, not delta format
+- [Risk] Template instructions reference proposal by accident → Mitigation: explicit review of all instruction text before shipping
 
 ## Open Questions
 
